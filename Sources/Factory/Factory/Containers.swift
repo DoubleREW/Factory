@@ -189,6 +189,8 @@ public final class ContainerManager {
     internal typealias FactoryOptionsMap = [String:FactoryOptions]
     /// Alias for Factory once set.
     internal typealias FactoryOnceSet = Set<String>
+    /// Alias for tagged registrations.
+    internal typealias TaggedFactoryMap = [String:[String: AnyTaggedFactory]]
 
     /// Internal closure decorates all factory resolutions for this container.
     internal var decorator: ((Any) -> ())?
@@ -202,6 +204,8 @@ public final class ContainerManager {
     internal lazy var cache: Scope.Cache = Scope.Cache()
     /// Push/Pop stack for registrations, options, cache, and so on.
     internal lazy var stack: [(FactoryMap, FactoryOptionsMap, Scope.Cache.CacheMap, Bool)] = []
+    /// tagged registrations
+    internal lazy var taggedFactories: TaggedFactoryMap = .init(minimumCapacity: 32)
 
 }
 
