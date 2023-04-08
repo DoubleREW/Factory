@@ -7,8 +7,8 @@
 
 import Foundation
 
-public protocol Tag<T> {
-    associatedtype T
+public protocol Tag<S> {
+    associatedtype S
 
     var name: String { get }
 }
@@ -19,9 +19,9 @@ extension Tag {
     }
 }
 
-struct TaggedFactory<G: Tag> : AnyTaggedFactory {
-    let tag: G
-    let factory: Factory<G.T>
+struct TaggedFactory<C: SharedContainer, T: Tag> : AnyTaggedFactory {
+    let tag: T
+    let factoryKeyPath: KeyPath<C, Factory<T.S>>
     let priority: Int
     let alias: String?
 
@@ -38,45 +38,47 @@ protocol AnyTaggedFactory {
 
 // FactoryModifying tagging
 
-extension Factory {
-    @discardableResult
-    func tag<G: Tag>(_ tag: G, priority: Int = 0, alias: String? = nil) -> Self where G.T == Self.T {
-        let taggedFactory = TaggedFactory(tag: tag, factory: self, priority: priority, alias: alias)
+extension SharedContainer {
+    fileprivate func _tag<C: SharedContainer, T: Tag>(_ keyPath: KeyPath<C, Factory<T.S>>, as tag: T, priority: Int = 0, alias: String? = nil) {
+        let taggedFactory = TaggedFactory(
+            tag: tag,
+            factoryKeyPath: keyPath,
+            priority: priority,
+            alias: alias)
 
-        if registration.container.manager.taggedFactories[tag.name] == nil {
-            registration.container.manager.taggedFactories[tag.name] = [:]
+        if manager.taggedFactories[tag.name] == nil {
+            manager.taggedFactories[tag.name] = [:]
         }
 
-        registration.container.manager.taggedFactories[tag.name]![self.registration.id] = taggedFactory
-
-        return self
+        manager.taggedFactories[tag.name]![C.shared[keyPath: keyPath].registration.id] = taggedFactory
     }
-}
 
+    func tag<C: SharedContainer, T: Tag>(_ keyPath: KeyPath<C, Factory<T.S>>, as tag: T, priority: Int = 0, alias: String? = nil) {
+        _tag(keyPath, as: tag, priority: priority, alias: alias)
+    }
 
-extension Container {
-    func resolve<G: Tag>(tagged tag: G) -> [G.T] {
-        let taggedFactories = self.manager.taggedFactories[tag.name] ?? [:]
-        var results: [G.T] = []
+    func resolve<T: Tag>(tagged tag: T) -> [T.S] {
+        let taggedFactories = manager.taggedFactories[tag.name] ?? [:]
+        var results: [T.S] = []
 
         for anyTaggedFactory in taggedFactories.values.sorted(by: { $0.priority < $1.priority }) {
-            guard let taggedFactory = anyTaggedFactory as? TaggedFactory<G> else {
+            guard let taggedFactory = anyTaggedFactory as? TaggedFactory<Self, T> else {
                 continue
             }
 
-            let instance = taggedFactory.factory.resolve()
+            let instance = self[keyPath: taggedFactory.factoryKeyPath].resolve()
             results.append(instance)
         }
 
         return results
     }
 
-    func resolveAssociative<G: Tag>(tagged tag: G) -> [String: G.T] {
+    func resolveAssociative<T: Tag>(tagged tag: T) -> [String: T.S] {
         let taggedFactories = self.manager.taggedFactories[tag.name] ?? [:]
-        var results: [String: G.T] = [:]
+        var results: [String: T.S] = [:]
 
         for anyTaggedFactory in taggedFactories.values {
-            guard let taggedFactory = anyTaggedFactory as? TaggedFactory<G> else {
+            guard let taggedFactory = anyTaggedFactory as? TaggedFactory<Self, T> else {
                 continue
             }
 
@@ -84,10 +86,16 @@ extension Container {
                 continue
             }
 
-            let instance = taggedFactory.factory.resolve()
+            let instance = self[keyPath: taggedFactory.factoryKeyPath].resolve()
             results[alias] = instance
         }
 
         return results
+    }
+}
+
+extension Container {
+    func tag<T: Tag>(_ keyPath: KeyPath<Container, Factory<T.S>>, as tag: T, priority: Int = 0, alias: String? = nil) {
+        _tag(keyPath, as: tag, priority: priority, alias: alias)
     }
 }

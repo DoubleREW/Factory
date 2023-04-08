@@ -2,15 +2,15 @@ import XCTest
 @testable import Factory
 
 struct MyTag1 : Tag {
-    typealias T = MyServiceType
+    typealias S = MyServiceType
 }
 
 struct MyTag2 : Tag {
-    typealias T = MyServiceType
+    typealias S = MyServiceType
 }
 
 struct MyTag3 : Tag {
-    typealias T = ValueProviding
+    typealias S = ValueProviding
 }
 
 extension Tag where Self == MyTag1 {
@@ -58,9 +58,9 @@ final class FactoryTagsTests: XCTestCase {
     }
     
     func testTags() {
-        Container.shared.myTaggedService1.tag(.myTag1)
-        Container.shared.myTaggedService2.tag(.myTag1)
-        Container.shared.myTaggedService3.tag(.myTag2)
+        Container.shared.tag(\.myTaggedService1, as: .myTag1, priority: 10)
+        Container.shared.tag(\.myTaggedService2, as: .myTag1, priority: 20)
+        Container.shared.tag(\.myTaggedService3, as: .myTag2)
 
         let services1 = Container.shared.resolve(tagged: .myTag1)
         XCTAssertEqual(services1.count, 2)
@@ -70,9 +70,9 @@ final class FactoryTagsTests: XCTestCase {
     }
 
     func testTagsAssociative() {
-        Container.shared.myTaggedService1.tag(.myTag1, alias: "myServiceA.1")
-        Container.shared.myTaggedService2.tag(.myTag1, alias: "myServiceA.2")
-        Container.shared.myTaggedService3.tag(.myTag2, alias: "myServiceB.1")
+        Container.shared.tag(\.myTaggedService1, as: .myTag1, alias: "myServiceA.1")
+        Container.shared.tag(\.myTaggedService2, as: .myTag1, alias: "myServiceA.2")
+        Container.shared.tag(\.myTaggedService3, as: .myTag2, alias: "myServiceB.1")
 
         let services1 = Container.shared.resolveAssociative(tagged: .myTag1)
         XCTAssertEqual(services1.count, 2)
